@@ -1,6 +1,4 @@
 # TODOs:
-* Setup logging
-
 * Handle errors
     a. Replace all those fmt.Println with a logging statement
 
