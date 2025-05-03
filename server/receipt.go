@@ -21,6 +21,7 @@ type Item struct {
 	Price            string `json:"price"`
 }
 
+// PriceValue gives the price as a floating point
 func (i *Item) PriceValue(ctx context.Context) float64 {
 	num, err := strconv.ParseFloat(i.Price, 64)
 	if err != nil {
@@ -31,6 +32,7 @@ func (i *Item) PriceValue(ctx context.Context) float64 {
 	return num
 }
 
+// Points calculates points for the receipt
 func (r *Receipt) Points(ctx context.Context) int64 {
 	var points int64 = 0
 	// * One point for every alphanumeric character in the retailer name.
