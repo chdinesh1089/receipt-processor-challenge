@@ -9,16 +9,16 @@ import (
 )
 
 type Receipt struct {
-	Retailer     string `json:"retailer"`
-	PurchaseDate string `json:"purchaseDate"`
-	PurchaseTime string `json:"purchaseTime"`
-	Items        []Item `json:"items"`
-	Total        string `json:"total"`
+	Retailer     string `json:"retailer" validate:"required"`
+	PurchaseDate string `json:"purchaseDate" validate:"required"`
+	PurchaseTime string `json:"purchaseTime" validate:"required"`
+	Items        []Item `json:"items" validate:"required,dive,required"`
+	Total        string `json:"total" validate:"required"`
 }
 
 type Item struct {
-	ShortDescription string `json:"shortDescription"`
-	Price            string `json:"price"`
+	ShortDescription string `json:"shortDescription" validate:"required"`
+	Price            string `json:"price" validate:"required"`
 }
 
 // PriceValue gives the price as a floating point

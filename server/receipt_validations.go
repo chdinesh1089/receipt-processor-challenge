@@ -7,9 +7,23 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/go-playground/validator/v10"
 )
 
+var regexDollarAmount, _ = regexp.Compile(`^\d+\.\d{2}$`)
+var regexRetailer, _ = regexp.Compile(`^[\w\s\-&]+$`)
+
 func (r *Receipt) Validate(ctx context.Context) error {
+	validate := validator.New()
+	if err := validate.Struct(r); err != nil {
+		return err
+	}
+
+	if len(r.Items) == 0 {
+		return errors.New("no items - at least one item is required")
+	}
+
 	if err := r.validateRetailer(ctx); err != nil {
 		return err
 	}
@@ -26,8 +40,7 @@ func (r *Receipt) Validate(ctx context.Context) error {
 }
 
 func (r *Receipt) validateRetailer(ctx context.Context) error {
-	reg, _ := regexp.Compile(`^[\w\s\-&]+$`)
-	if !reg.MatchString(r.Retailer) {
+	if !regexRetailer.MatchString(r.Retailer) {
 		getLogger(ctx).Error("validateRetailer> Invalid retailer:", r.Retailer)
 		return errors.New("invalid retailer")
 	}
@@ -53,6 +66,9 @@ func (r *Receipt) validatePurchaseTime(ctx context.Context) error {
 }
 
 func (r *Receipt) validateTotal(ctx context.Context) error {
+	if !regexDollarAmount.MatchString(r.Total) {
+		return errors.New("invalid total")
+	}
 	total, err := strconv.ParseFloat(r.Total, 64)
 	if err != nil {
 		getLogger(ctx).Error("validateTotal> Error parsing total:", err)
@@ -61,6 +77,9 @@ func (r *Receipt) validateTotal(ctx context.Context) error {
 
 	totalCalculated := 0.0
 	for _, item := range r.Items {
+		if !regexDollarAmount.MatchString(item.Price) {
+			return errors.New("invalid item price")
+		}
 		itemPrice, err := strconv.ParseFloat(item.Price, 64)
 		if err != nil {
 			getLogger(ctx).Error("validateItems> Error parsing item price:", err)
