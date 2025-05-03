@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -62,6 +61,8 @@ func (s *Server) LoggingMiddleware(next http.Handler) http.Handler {
 
 func (s *Server) writeJsonResponse(w http.ResponseWriter, statusCode int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+
 	err := json.NewEncoder(w).Encode(v)
 	if err != nil {
 		s.log.WithField("request_id", w.Header().Get("request_id")).
@@ -69,7 +70,6 @@ func (s *Server) writeJsonResponse(w http.ResponseWriter, statusCode int, v inte
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(statusCode)
 }
 
 func (s *Server) processReceipts(w http.ResponseWriter, r *http.Request) {
@@ -110,5 +110,6 @@ func (s *Server) getPoints(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) Serve() {
-	log.Fatal(http.ListenAndServe(":80", s.router))
+	s.log.Info("Starting server on port 8080...")
+	s.log.Fatal(http.ListenAndServe(":8080", s.router))
 }
