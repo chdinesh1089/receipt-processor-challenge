@@ -12,6 +12,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var invalidReceiptErrStr = "The receipt is invalid."
+var receiptNotFoundErrStr = "No receipt found for that ID."
+
 type Server struct {
 	router   *mux.Router
 	receipts map[string]Receipt
@@ -57,14 +60,38 @@ func (s *Server) LoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func (s *Server) writeJsonResponse(w http.ResponseWriter, statusCode int, v interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	err := json.NewEncoder(w).Encode(v)
+	if err != nil {
+		s.log.WithField("request_id", w.Header().Get("request_id")).
+			Error("writeJsonResponse> Failed to encode response to json", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(statusCode)
+}
+
 func (s *Server) processReceipts(w http.ResponseWriter, r *http.Request) {
 	var receipt Receipt
-	json.NewDecoder(r.Body).Decode(&receipt)
-	// TODO: Validate receipt
+	err := json.NewDecoder(r.Body).Decode(&receipt)
+
+	if err != nil {
+		s.log.WithField("request_id", r.Context().Value(RequestIDKey)).Error(err)
+		s.writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": invalidReceiptErrStr, "details": err.Error()})
+		return
+	}
+
+	if err := receipt.Validate(r.Context()); err != nil {
+		s.log.WithField("request_id", r.Context().Value(RequestIDKey)).Error(err)
+		s.writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": invalidReceiptErrStr, "details": err.Error()})
+		return
+	}
+
 	id := uuid.New()
 	receipt_id := id.String()
 	s.receipts[receipt_id] = receipt
-	json.NewEncoder(w).Encode(map[string]string{"id": receipt_id})
+	s.writeJsonResponse(w, http.StatusOK, map[string]string{"id": receipt_id})
 }
 
 func (s *Server) getPoints(w http.ResponseWriter, r *http.Request) {
@@ -72,13 +99,14 @@ func (s *Server) getPoints(w http.ResponseWriter, r *http.Request) {
 	receipt_id := vars["id"]
 	receipt, ok := s.receipts[receipt_id]
 	if !ok {
-		s.log.WithField("request_id", r.Context().Value(RequestIDKey)).Warn("Receipt not found, receipt_id:", receipt_id, "receipts:", s.receipts)
-		w.WriteHeader(http.StatusNotFound)
+		s.log.WithField("request_id", r.Context().Value(RequestIDKey)).
+			Error("getPoints> Receipt not found, receipt_id:", receipt_id, "receipts:", s.receipts)
+		s.writeJsonResponse(w, http.StatusNotFound, map[string]string{"error": receiptNotFoundErrStr})
 		return
 	}
 
-	// TODO: Perhaps Cache this so we don't compute it every time
-	json.NewEncoder(w).Encode(map[string]int64{"points": receipt.Points(r.Context())})
+	// Perhaps Cache this so we don't compute it every time
+	s.writeJsonResponse(w, http.StatusOK, map[string]int64{"points": receipt.Points(r.Context())})
 }
 
 func (s *Server) Serve() {
