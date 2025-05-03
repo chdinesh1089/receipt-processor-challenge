@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -65,7 +64,7 @@ func (s *Server) processReceipts(w http.ResponseWriter, r *http.Request) {
 	id := uuid.New()
 	receipt_id := id.String()
 	s.receipts[receipt_id] = receipt
-	json.NewEncoder(w).Encode(receipt_id)
+	json.NewEncoder(w).Encode(map[string]string{"id": receipt_id})
 }
 
 func (s *Server) getPoints(w http.ResponseWriter, r *http.Request) {
@@ -73,13 +72,13 @@ func (s *Server) getPoints(w http.ResponseWriter, r *http.Request) {
 	receipt_id := vars["id"]
 	receipt, ok := s.receipts[receipt_id]
 	if !ok {
-		fmt.Println("Receipt not found, receipt_id:", receipt_id, "receipts:", s.receipts)
+		s.log.WithField("request_id", r.Context().Value(RequestIDKey)).Warn("Receipt not found, receipt_id:", receipt_id, "receipts:", s.receipts)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
 	// TODO: Perhaps Cache this so we don't compute it every time
-	json.NewEncoder(w).Encode(receipt.Points(r.Context()))
+	json.NewEncoder(w).Encode(map[string]int64{"points": receipt.Points(r.Context())})
 }
 
 func (s *Server) Serve() {
