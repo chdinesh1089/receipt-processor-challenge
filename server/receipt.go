@@ -34,6 +34,11 @@ func (i *Item) PriceValue(ctx context.Context) float64 {
 
 // Points calculates points for the receipt
 func (r *Receipt) Points(ctx context.Context) int64 {
+	if r.Validate(ctx) != nil {
+		// Not returning error here, just logging so it can be manually investigated
+		getLogger(ctx).Error("r.Points()> Invalid receipt stored in db. Need to investigate.")
+	}
+
 	var points int64 = 0
 	// * One point for every alphanumeric character in the retailer name.
 	points += r.countAlphaNumericChars(r.Retailer)
